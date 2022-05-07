@@ -241,3 +241,40 @@ def make_csv(query, filename):
     df.to_csv(Path('./data') / filename, index=False)
     
     print("done")
+    
+
+def read_tables():
+    '''
+    Display database tables.
+    '''
+    
+    # import libraries
+    import psycopg2
+    import pandas as pd
+    
+    query = '''
+    SELECT tablename
+    FROM pg_catalog.pg_tables
+    WHERE schemaname != 'pg_catalog'
+    AND schemaname != 'information_schema'
+    ORDER BY tablename ASC;
+    '''
+    
+    # Creating a connection to the database
+    con = psycopg2.connect(database="mid_term_project", 
+                           user="lhl_student", 
+                           password="lhl_student", 
+                           host="lhl-data-bootcamp.crzjul5qln0e.ca-central-1.rds.amazonaws.com", 
+                           port="5432")
+
+    # creating cursor and run query
+    cur = con.cursor()
+    cur.execute(query)
+    
+    # print table names
+    tables = [table[0] for table in cur.fetchall()]
+    tables = pd.Series(tables)
+    
+    con.close()
+    
+    return tables
