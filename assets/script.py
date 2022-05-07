@@ -236,3 +236,4 @@ def make_csv(query, filename):
     df.to_csv(Path('./data') / filename, index=False)
     
     print("done")
+    
