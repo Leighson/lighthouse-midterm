@@ -245,7 +245,7 @@ def make_csv(query, filename):
 
 def read_tables():
     '''
-    Display database tables.
+    Display database tables as pd.Series object.
     '''
     
     # import libraries
