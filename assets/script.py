@@ -197,10 +197,15 @@ def print_scores(y_test, y_pred, y_prob):
     
     
 def make_csv(query, filename):
-    """ I think it only works for 'SELECT *' statements. """
+    """ I think it only works for 'SELECT *' statements. Will also convert csv file to pandas dataframe. must call function as a variable.  (df_name = make_csv(arg1, arg2))"""
     import psycopg2
     import pandas as pd
     from pathlib import Path
+    
+     # check if file already exists
+    if os.path.exists(filename):
+        df = pd.read_csv(filename)
+        return df
     
     # ensure all columns are displayed when viewing a pandas dataframe
     pd.set_option('display.max_columns', None)
