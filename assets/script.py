@@ -1,33 +1,6 @@
+from multiprocessing.sharedctypes import Value
 import numpy as np
 import pandas as pd
-import sqlite3 as sq
-import requests as re
-import matplotlib.pyplot as plt
-import seaborn as sns
-import plotly.express as px
-import plotly.graph_objects as go
-from sklearn import linear_model
-
-# def split_data(df, target='target', drop_list=None, test_size=0.2, stratify=False):
-    
-#     #import
-#     from sklearn.model_selection import train_test_split
-    
-#     # drop column
-#     if drop_list != None:
-#         df = df.drop(drop_list, axis=1)
-    
-#     #test-train split
-#     y = df[target].values # target
-#     X = df.drop([target], axis=1).values # without target
-
-#     X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=test_size, stratify=stratify, random_state=42)
-    
-#     # print train and test sample sizes
-#     print("train-set size: ", len(y_train))
-#     print("test-set size: ", len(y_test))
-    
-#     return X_train, X_test, y_train, y_test
 
 def split_data(df, target, drop_list=None, scaler=None):
     '''
@@ -102,7 +75,7 @@ def get_predictions(clf, X_train, y_train, X_test):
     '''
     Pass a classifier class object along with the datasets to train and test. \\
     
-    PARAMETERS
+    Parameters
     ----------
     clf : class
         str(lr) for LinearRegression() | classifier with optional parameters
@@ -115,7 +88,7 @@ def get_predictions(clf, X_train, y_train, X_test):
     params : dict
         parameters to be passsed in classifier
     
-    RETURNS
+    Returns
     -------
     y_pred
         predicted classes
@@ -142,12 +115,6 @@ def get_predictions(clf, X_train, y_train, X_test):
     else:
         y_prob = estimator.predict_proba(X_test)
         return y_pred, y_prob
-    
-    # # for fun: train-set predictions
-    # train_pred = clf.predict(X_train)
-    
-    # print('train-set confusion matrix:\n', confusion_matrix(y_train,train_pred)) 
-    
 
 
 def print_scores(y_test, y_pred, y_prob):
@@ -185,39 +152,77 @@ def print_scores(y_test, y_pred, y_prob):
     from sklearn.metrics import confusion_matrix, roc_auc_score, recall_score, precision_score, accuracy_score, f1_score
     from sklearn.metrics import RocCurveDisplay
     
-    # print scores
-    print('1. Confusion Matrix:\n', confusion_matrix(y_test,y_pred)) 
-    print('2. Recall Score: ', recall_score(y_test,y_pred))
-    print('3. Precision Score: ', precision_score(y_test,y_pred))
-    print('4. F1 score: ', f1_score(y_test,y_pred))
-    print('5. Accuracy Score: ', accuracy_score(y_test,y_pred))
-    print('6. ROC-AUC: {}'.format(roc_auc_score(y_test, y_prob[:,1])))
+    # confusion matrix
+    print('Confusion matrix:\n', confusion_matrix(y_test, y_pred))
+    
+    print('\n--------SCORES---------\n')
+    
+    # recall scores
+    try:
+        print('1. Recall Score: ', recall_score(y_test,y_pred))
+    except ValueError:
+        print('1. Recall Score (multiclass micro)', recall_score(y_test,y_pred, average='micro'))
+        print('1. Recall Score (multiclass macro)', recall_score(y_test,y_pred, average='macro'))
+    
+    # precision scores
+    try:
+        print('2. Precision Score: ', recall_score(y_test,y_pred))
+    except ValueError:
+        print('2. Precision Score (multiclass micro)', precision_score(y_test,y_pred, average='micro'))
+        print('2. Precision Score (multiclass macro)', precision_score(y_test,y_pred, average='macro'))
+
+    # f1 scores
+    try:
+        print('3. F1 Score: ', f1_score(y_test,y_pred))
+    except ValueError:
+        print('3. F1 Score (multiclass micro)', f1_score(y_test,y_pred, average='micro'))
+        print('3. F1 Score (multiclass macro)', f1_score(y_test,y_pred, average='macro'))
+    
+    print('4. Accuracy Score: ', accuracy_score(y_test,y_pred))
+    
+    # ROC-AUC scores
+    try:
+        print('5. ROC-AUC: {}'.format(roc_auc_score(y_test, y_prob[:,1])))
+    except ValueError:
+        print('5. ROC-AUC (multi-class micro ovo): {}'.format(roc_auc_score(y_test, y_prob[:,1], average='micro', multi_class='ovo')))
+        print('5. ROC-AUC (multi-class macro ovo): {}'.format(roc_auc_score(y_test, y_prob[:,1], average='macro', multi_class='ovo')))
+        print('5. ROC-AUC (multi-class micro ovr): {}'.format(roc_auc_score(y_test, y_prob[:,1], average='micro', multi_class='ovr')))
+        print('5. ROC-AUC (multi-class macro ovo): {}'.format(roc_auc_score(y_test, y_prob[:,1], average='macro', multi_class='ovr')))
+    except np.AxisError:
+        pass
     
     RocCurveDisplay.from_predictions(y_test, y_pred)
     
     
 def make_csv(query, filename):
-    """ I think it only works for 'SELECT *' statements. Will also convert csv file to pandas dataframe. must call function as a variable.  (df_name = make_csv(arg1, arg2))"""
+    """ I think it only works for 'SELECT *' statements.
+    Will also convert csv file to pandas dataframe. 
+    Must call function as a variable.
+    (df_name = make_csv(arg1, arg2))
+    """
+    
+    # import libraries
     import psycopg2
     import pandas as pd
+    import os
     from pathlib import Path
     
      # check if file already exists
-    if os.path.exists(filename):
-        df = pd.read_csv(filename)
+    if os.path.exists(Path('./data') / filename):
+        print('File exists. Returning DataFrame...')
+        df = pd.read_csv(Path('./data') / filename)
         return df
     
     # ensure all columns are displayed when viewing a pandas dataframe
     pd.set_option('display.max_columns', None)
 
     # Creating a connection to the database
-    print("creating conecction...")
+    print("creating connection...")
     con = psycopg2.connect(database="mid_term_project", 
                            user="lhl_student", 
                            password="lhl_student", 
                            host="lhl-data-bootcamp.crzjul5qln0e.ca-central-1.rds.amazonaws.com", 
                            port="5432")
-
 
     # creating a cursor object
     cur = con.cursor()
