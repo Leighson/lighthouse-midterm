@@ -194,11 +194,22 @@ def print_scores(y_test, y_pred, y_prob):
     RocCurveDisplay.from_predictions(y_test, y_pred)
     
     
-def make_csv(query, filename):
+def make_csv(query, filename, limit=1000, overwrite=False):
     """ I think it only works for 'SELECT *' statements.
     Will also convert csv file to pandas dataframe. 
     Must call function as a variable.
     (df_name = make_csv(arg1, arg2))
+    
+    Query Example
+    -------------
+    table_name = 'flights_test'
+    limit = (10000, )
+
+    query = sql.SQL(
+        "SELECT * FROM {table} LIMIT %s").format(
+            table = sql.Identifier(table_name),)
+    
+    filename = 'flights_test_10k_sample.csv'
     """
     
     # import libraries
@@ -208,7 +219,7 @@ def make_csv(query, filename):
     from pathlib import Path
     
      # check if file already exists
-    if os.path.exists(Path('./data') / filename):
+    if os.path.exists(Path('./data') / filename) and overwrite==False:
         print('File exists. Returning DataFrame...')
         df = pd.read_csv(Path('./data') / filename)
         return df
@@ -228,7 +239,7 @@ def make_csv(query, filename):
     cur = con.cursor()
     # running an sql query
     print("running query...")
-    cur.execute(query)
+    cur.execute(query, limit)
     # Storing the result
     rows = cur.fetchall()
     cols = [desc[0] for desc in cur.description]
@@ -243,23 +254,32 @@ def make_csv(query, filename):
     print("done")
     
 
-def read_tables():
+def read_tables(table_name=None):
     '''
-    Display database tables.
+    Display database tables as pd.Series object.
     '''
     
     # import libraries
     import psycopg2
     import pandas as pd
     
-    query = '''
-    SELECT tablename
-    FROM pg_catalog.pg_tables
-    WHERE schemaname != 'pg_catalog'
-    AND schemaname != 'information_schema'
-    ORDER BY tablename ASC;
-    '''
-    
+    # query to return table column names if specified
+    if table_name != None:
+        query = """
+        SELECT column_name, data_type
+        FROM information_schema.columns
+        WHERE table_name = table_name;
+        """
+    else:
+        # query to return table names
+        query = """
+        SELECT tablename
+        FROM pg_catalog.pg_tables
+        WHERE schemaname != 'pg_catalog'
+        AND schemaname != 'information_schema'
+        ORDER BY tablename ASC;
+        """
+            
     # Creating a connection to the database
     con = psycopg2.connect(database="mid_term_project", 
                            user="lhl_student", 
