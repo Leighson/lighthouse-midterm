@@ -194,7 +194,7 @@ def print_scores(y_test, y_pred, y_prob):
     RocCurveDisplay.from_predictions(y_test, y_pred)
     
     
-def make_csv(query, filename, limit=1000):
+def make_csv(query, filename, limit=1000, overwrite=False):
     """ I think it only works for 'SELECT *' statements.
     Will also convert csv file to pandas dataframe. 
     Must call function as a variable.
@@ -203,7 +203,7 @@ def make_csv(query, filename, limit=1000):
     Query Example
     -------------
     table_name = 'flights_test'
-    limit = 10000
+    limit = (10000, )
 
     query = sql.SQL(
         "SELECT * FROM {table} LIMIT %s").format(
@@ -219,7 +219,7 @@ def make_csv(query, filename, limit=1000):
     from pathlib import Path
     
      # check if file already exists
-    if os.path.exists(Path('./data') / filename):
+    if os.path.exists(Path('./data') / filename) and overwrite==False:
         print('File exists. Returning DataFrame...')
         df = pd.read_csv(Path('./data') / filename)
         return df
