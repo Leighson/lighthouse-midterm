@@ -243,7 +243,7 @@ def make_csv(query, filename):
     print("done")
     
 
-def read_tables():
+def read_tables(table_name=None):
     '''
     Display database tables as pd.Series object.
     '''
@@ -252,14 +252,23 @@ def read_tables():
     import psycopg2
     import pandas as pd
     
-    query = '''
-    SELECT tablename
-    FROM pg_catalog.pg_tables
-    WHERE schemaname != 'pg_catalog'
-    AND schemaname != 'information_schema'
-    ORDER BY tablename ASC;
-    '''
-    
+    # query to return table column names if specified
+    if table_name != None:
+        query = """
+        SELECT column_name, data_type
+        FROM information_schema.columns
+        WHERE table_name = table_name;
+        """
+    else:
+        # query to return table names
+        query = """
+        SELECT tablename
+        FROM pg_catalog.pg_tables
+        WHERE schemaname != 'pg_catalog'
+        AND schemaname != 'information_schema'
+        ORDER BY tablename ASC;
+        """
+            
     # Creating a connection to the database
     con = psycopg2.connect(database="mid_term_project", 
                            user="lhl_student", 
