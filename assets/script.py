@@ -298,3 +298,12 @@ def read_tables(table_name=None):
     con.close()
     
     return tables
+
+    def unique_values(df):
+        '''
+        provides all unqie values in a presented df
+        '''
+    for i in range(len(df.columns)):
+        unique =  df.iloc[:, i].unique()
+        print(unique)
+    return
