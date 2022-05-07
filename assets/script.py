@@ -194,11 +194,22 @@ def print_scores(y_test, y_pred, y_prob):
     RocCurveDisplay.from_predictions(y_test, y_pred)
     
     
-def make_csv(query, filename):
+def make_csv(query, filename, limit=1000):
     """ I think it only works for 'SELECT *' statements.
     Will also convert csv file to pandas dataframe. 
     Must call function as a variable.
     (df_name = make_csv(arg1, arg2))
+    
+    Query Example
+    -------------
+    table_name = 'flights_test'
+    limit = 10000
+
+    query = sql.SQL(
+        "SELECT * FROM {table} LIMIT %s").format(
+            table = sql.Identifier(table_name),)
+    
+    filename = 'flights_test_10k_sample.csv'
     """
     
     # import libraries
@@ -228,7 +239,7 @@ def make_csv(query, filename):
     cur = con.cursor()
     # running an sql query
     print("running query...")
-    cur.execute(query)
+    cur.execute(query, limit)
     # Storing the result
     rows = cur.fetchall()
     cols = [desc[0] for desc in cur.description]
