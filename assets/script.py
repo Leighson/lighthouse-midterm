@@ -254,6 +254,7 @@ def make_csv(query, filename, limit=1000, overwrite=False):
     
     print("done")
     
+    return(df)
 
 def read_tables(table_name=None):
     '''
