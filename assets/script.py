@@ -480,3 +480,14 @@ def search_data(data, regex_term):
             indices.append(i)
 
     return indices, results
+
+
+def replace_with_numeric(df, column):
+    '''
+    input the data frame and the column to repalace the unique values with numeric values
+    '''
+    unique_vals = df[column].unique()
+    df[column].replace(to_replace=unique_vals,
+                                  value= list(range(len(unique_vals))),
+                                  inplace=True)
+    return
