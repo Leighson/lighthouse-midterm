@@ -195,7 +195,8 @@ def print_scores(y_test, y_pred, y_prob):
     
     
 def make_csv(query, filename, limit=1000, overwrite=False):
-    """ I think it only works for 'SELECT *' statements.
+    """
+    I think it only works for 'SELECT *' statements.
     Will also convert csv file to pandas dataframe. 
     Must call function as a variable.
     (df_name = make_csv(arg1, arg2))
@@ -299,17 +300,31 @@ def read_tables(table_name=None):
     
     return tables
 
-    def unique_values(df):
-        '''
-        provides all unqie values in a presented df
-        '''
+def unique_values(df):
+    '''
+    provides all unique values in a presented df
+    '''
     for i in range(len(df.columns)):
         unique =  df.iloc[:, i].unique()
         print(unique)
+        
     return
 
 
 def graph_eda(type, x, y=None, bins=20, marker_size=2):
+    """
+    Quickly graph for EDAs.
+
+    Args:
+        type (str): 'hist', 'scatter', 'plot'
+        x (list, df.column, array): data for x-axis
+        y (list, df.column, array, optional): 'plot' or 'scatter' data for y-axis. Defaults to None.
+        bins (int, optional): 'hist' bin sizing to convert continuous data to discrete. HDefaults to 20.
+        marker_size (int, optional): 'scatter' marker size. Defaults to 2.
+
+    Returns:
+        None: No returns.
+    """
 
     # import libraries
     import matplotlib.pyplot as plt
@@ -337,7 +352,7 @@ def graph_eda(type, x, y=None, bins=20, marker_size=2):
 
 
 def filter_outliers(df, column):
-    """DOCSTRING \\
+    """
     Filter outliers in a DataFrame based on z-scores greater than 3. In other words, filter \\
     values that are 3 standard deviations from the column's mean distribution.
     
@@ -369,7 +384,7 @@ def filter_outliers(df, column):
 
 
 def check_normal_dist(data, skipna=True, distribution='norm', bins=20):
-    """DOCSTRING
+    """
     Checks for normal distribution using:
     + Shapiro-Wilk Test
     + Anderson-Darling Test
@@ -425,7 +440,7 @@ def check_normal_dist(data, skipna=True, distribution='norm', bins=20):
     
 
 def search_data(data, regex_term):
-    """DOCSTRING \
+    """
     Use regex formatted terms to search through any list-like data. Returns results in list form.
     This will also return indices in case DataFrame row filtering is required.
     
