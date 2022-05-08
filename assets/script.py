@@ -307,3 +307,161 @@ def read_tables(table_name=None):
         unique =  df.iloc[:, i].unique()
         print(unique)
     return
+
+
+def graph_eda(type, x, y=None, bins=20, marker_size=2):
+
+    # import libraries
+    import matplotlib.pyplot as plt
+    
+    plt.figure(figsize=(10,8))
+    
+    # graphs
+    if type == 'hist':
+        plt.xlabel(x.name)
+        plt.ylabel('count')
+        plt.hist(x, bins=bins)
+        return plt.show()
+    
+    elif type == 'plot':
+        plt.xlabel(x.name)
+        plt.ylabel(y.name)
+        plt.plot(x,y)
+        return plt.show()
+    
+    elif type == 'scatter':
+        plt.xlabel(x.name)
+        plt.ylabel(y.name)
+        plt.scatter(x,y, s=marker_size)
+        return plt.show()
+
+
+def filter_outliers(df, column):
+    """DOCSTRING \\
+    Filter outliers in a DataFrame based on z-scores greater than 3. In other words, filter \\
+    values that are 3 standard deviations from the column's mean distribution.
+    
+    Parameters
+    ----------
+    df : pandas.DataFrame
+        DataFrame to be filtered.
+    column : pandas.Series
+        DataFrame column to be evaluated for outliers.
+        
+    Returns
+    -------
+    filter_outliers : pandas>dataFrame
+        Return filtered DataFrame.
+    """
+    
+    # import libraries
+    from scipy import stats
+    
+    # remove outliers with |z-score| no greater than 3
+    filter_outliers = []
+    z = abs(stats.zscore(column))
+
+    for i, score in enumerate(z):
+        if score < 3:
+            filter_outliers.append(df.iloc[i, :])
+    
+    return pd.DataFrame(filter_outliers)
+
+
+def check_normal_dist(data, skipna=True, distribution='norm', bins=20):
+    """DOCSTRING
+    Checks for normal distribution using:
+    + Shapiro-Wilk Test
+    + Anderson-Darling Test
+    + Skewness and Kurtosis
+    
+    Plots distribution according to number of bins passed.
+    
+    Parameters
+    ---------
+    data : array, list, pandas.Series
+        Distribution to check normality.
+    skipna : bool | default=True
+        Ignores null or na values in data to determine 'kurtosis' and 'skewness'.
+    distribution : str | default='norm'
+        Accepts: 'norm', 'expon', 'logistic', 'gumbel', 'gumbel_l', 'gumbel_r', or 'extreme1'
+        Check `stats.anderson()` for further documentation.
+    bins : int | default=20
+        Defines number of bins for plot.
+    
+    Returns
+    -------
+    None
+    """
+    # import libraries
+    from scipy import stats
+    import matplotlib.pyplot as plt
+    
+    # shapiro test
+    print('Shapiro-Wilk Test')
+    print('-----------------')
+    print('Provided an alpha of 0.05, if p-value > alpha then the distribution can be assumed to be normal.')
+    print('This test prunes data to the first 5000 data points or "head(5000)" as reliability suffers with increasing samples.')
+    s, p = stats.shapiro(data.head(5000))
+    print('t-stat:', s, ', p-value:', p)
+
+    # anderson test
+    print('\nAnderson-Darling Test')
+    print('---------------------')
+    print('If the returned statistic > critical values then for the corresponding significance level,')
+    print('the null hypothesis that the data come from the chosen distribution can be rejected.')
+    stat, crit, sig = stats.anderson(data, distribution)
+    print('t-stat:', stat, ', critical values:', crit, ', at significance levels of:', sig)
+
+    # skewness and kurtosis
+    print('\nSkewness and Kurtosis')
+    print('---------------------')
+    print('skewness, -ve skews left and +ve skews right (0 is best):', data.skew(skipna=skipna))
+    print('kurtosis, tail spread (< 3 is best):', data.kurtosis(skipna=skipna))
+    
+    # plot distribution
+    graph_eda('hist', x=data, bins=bins)
+    
+    
+
+def search_data(data, regex_term):
+    """DOCSTRING \
+    Use regex formatted terms to search through any list-like data. Returns results in list form.
+    This will also return indices in case DataFrame row filtering is required.
+    
+    For RegularExpression syntax: https://www.programiz.com/python-programming/regex
+    
+    Note: Remember to reset DataFrame indexing if previously filtered. The resulting
+    indices here only 'remembers' positions--it will not account for non-sequential
+    indexes.
+    
+    Parameters
+    ----------
+    data : str of list, array, pandas.Series
+        Data to loop search through. Must be strings.
+    regex_term : regex str
+        Format as 'r"<search terms>"'. Exclude arrow/tag brackets.
+    
+    Returns
+    -------
+    indices : list
+        Positional indices.
+    results : list
+        Resulting string objects matching regex search.
+    """
+    # import libraries
+    import re
+    
+    regex = regex_term
+
+    # search 
+    results = []
+    indices = []
+    for i, values in enumerate(data):
+        result = re.search(regex, values)
+        
+        if result != None:
+            results.append(result.group(0))
+            indices.append(i)
+
+    return indices, results
