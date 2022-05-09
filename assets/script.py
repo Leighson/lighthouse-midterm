@@ -492,3 +492,26 @@ def replace_with_numeric(df, column):
                                   value= list(range(len(unique_vals))),
                                   inplace=True)
     return
+
+
+def xgboost(X_train = X_train, y_train = y_train, n_estimators = 10, max_depth = 5, alpha = 10, num_boost_round = 50):
+    '''
+    Set the params for XGBoost and perform corss validation by K-folds method, will eventually split the functions for more specificity
+    '''
+    xg_reg = xgb.XGBRegressor(objective = 'reg:linear', colsample_bytree = 0.3, learning_rate = 0.1, 
+                          max_depth = max_depth, alpha = alpha, n_estimators = n_estimators)
+    xg_reg.fit(X_train, y_train)
+    y_pred = xg_reg.predict(X_test)
+    
+    rmse = np.sqrt(mean_squared_error(y_test, y_pred))
+    print('RMSE: %f' % (rmse))
+    
+    params = {"objective":"reg:linear", 'colsample_bytree': 0.3, 
+          'learning_rate': 0.1, 'max_depth': 5, 'alpha': 10}
+
+    cv_results = xgb.cv(dtrain=data_dmatrix, params=params, nfold=3,
+                        num_boost_round=num_boost_round,early_stopping_rounds=10,metrics="rmse", 
+                        as_pandas=True, seed=123)
+    
+    print(cv_results)
+    return
