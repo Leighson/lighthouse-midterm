@@ -253,6 +253,8 @@ def make_csv(query, filename, overwrite=False):
     df.to_csv(Path('./data') / filename, index=False)
     
     print("done")
+    
+    return(df)
 
 
 def sql_read_tables(table_name=None):
@@ -668,3 +670,15 @@ def sql_search_date(table, field='fl_date', y=2019, m=None, d=None, limit=1000, 
     df.to_csv(Path('./data') / filename, index=False)
     print("Returning DataFrame...")
     return df
+
+  
+def replace_with_numeric(df, column):
+    '''
+    input the data frame and the column to replace the unique values with numeric values
+    '''
+    unique_vals = df[column].unique()
+    df[column].replace(to_replace=unique_vals,
+                                  value= list(range(len(unique_vals))),
+                                  inplace=True)
+    return
+
