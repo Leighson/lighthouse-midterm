@@ -192,9 +192,9 @@ def print_scores(y_test, y_pred, y_prob):
         pass
     
     RocCurveDisplay.from_predictions(y_test, y_pred)
-    
-    
-def make_csv(query, filename, limit=1000, overwrite=False):
+
+
+def make_csv(query, filename, overwrite=False):
     """
     I think it only works for 'SELECT *' statements.
     Will also convert csv file to pandas dataframe. 
@@ -240,7 +240,7 @@ def make_csv(query, filename, limit=1000, overwrite=False):
     cur = con.cursor()
     # running an sql query
     print("running query...")
-    cur.execute(query, limit)
+    cur.execute(query)
     # Storing the result
     rows = cur.fetchall()
     cols = [desc[0] for desc in cur.description]
@@ -256,7 +256,8 @@ def make_csv(query, filename, limit=1000, overwrite=False):
     
     return(df)
 
-def read_tables(table_name=None):
+
+def sql_read_tables(table_name=None):
     '''
     Display database tables as pd.Series object.
     '''
@@ -300,6 +301,7 @@ def read_tables(table_name=None):
     con.close()
     
     return tables
+
 
 def unique_values(df):
     '''
@@ -437,8 +439,7 @@ def check_normal_dist(data, skipna=True, distribution='norm', bins=20):
     
     # plot distribution
     graph_eda('hist', x=data, bins=bins)
-    
-    
+
 
 def search_data(data, regex_term):
     """
@@ -483,9 +484,197 @@ def search_data(data, regex_term):
     return indices, results
 
 
+def sql_read(query):
+        # import libraries
+        import pandas as pd
+        import psycopg2 as pg
+    
+        con = pg.connect(database="mid_term_project", 
+                                user="lhl_student", 
+                                password="lhl_student", 
+                                host="lhl-data-bootcamp.crzjul5qln0e.ca-central-1.rds.amazonaws.com", 
+                                port="5432")
+
+        # create cursor object
+        cur = con.cursor()
+        
+        # run sql query
+        cur.execute(query)
+        
+        # store result to rows and cols
+        rows = cur.fetchall()
+        cols = [desc[0] for desc in cur.description]
+
+        # close connection
+        con.close()
+
+        # convert to df and return
+        return pd.DataFrame(rows, columns=cols)
+
+
+def sql_search_date(table, field='fl_date', y=2019, m=None, d=None, limit=1000, overwrite=False):
+    """Search SQL database based on dates (yyyy-mm-dd).
+    Returns matching records (rows).
+    
+    - year-month search: If only searching for specific months, increase the default limit up to 25k. Monthly record counts don't go much further than 25k.
+    
+    - year or year-day search: Otherwise, searching the entire year or specific days of the year (regardless of month) is computationally expensive so
+    it is recommended that sample pulls be kept at default. Mechanically, this function will randomly sample 1K records per month, sequentially appending them
+    to a single DataFrame before returning the result. If a day is specified, it will also filter by day afterwards.
+    
+    - year-month-day search: The simplest search is for a specific date.  Feel free to increase the default limit. It's probably not an issue pulling complete
+    records of that date.
+    
+    Post search, it will also attempt to write the df to csv granted that the file does not already exist locally.
+    It will return the dataframe results regardless
+
+    Args:
+        table (str): SQL table to seardh.
+        field (srt): SQL field (column) to search.
+        y (int, optional): Year. Defaults to 2019.
+        m (int, optional): Month. Defaults to None.
+        d (int, optional): Day. Defaults to None.
+        term (dict, optional): {<feature/field> : <search term>}, key is the field to search, value is the search term
+        limit (int, optional): n limit to records returned. Defaults to 1000.
+        overwrite (bool, optional): If the file exists, write to csv will not proceed.
+
+    Returns:
+        DataFrame: Records returned as DataFrame.
+    """
+    
+    # import libraries
+    from psycopg2 import sql
+    from pathlib import Path
+    import pandas as pd
+    import os
+    
+    # define common ql variables
+    fields = sql.Identifier(field)
+    tables = sql.Identifier(table)
+    years = sql.Literal(y)
+    limits = sql.Literal(limit)
+    sample_size = int(limit/1000)
+    
+    
+    if (m != None) and (d != None): # filter for month and day, if specified
+        
+        # define search-specific sql variables
+        months = sql.Literal(m)
+        days = sql.Literal(d)
+        
+        if m < 10: # for months/days less than 10; add leading 0
+            if d < 10:
+                query = sql.Composed([sql.SQL("SELECT * FROM {tbl} ").format(tbl=tables),
+                                    sql.SQL("WHERE {fld} ~* '^{yr}-0{mon}-0{dy}' ").format(fld=fields, yr=years, mon=months, dy=days),
+                                    sql.SQL("ORDER BY RANDOM() LIMIT {lim};").format(lim=limits)])
+            else:
+                query = sql.Composed([sql.SQL("SELECT * FROM {tbl} ").format(tbl=tables),
+                                    sql.SQL("WHERE {fld} ~* '^{yr}-0{mon}-{dy}' ").format(fld=fields, yr=years, mon=months, dy=days),
+                                    sql.SQL("ORDER BY RANDOM() LIMIT {lim};").format(lim=limits)])
+        else:
+            if d < 10:
+                query = sql.Composed([sql.SQL("SELECT * FROM {tbl} ").format(tbl=tables),
+                                    sql.SQL("WHERE {fld} ~* '^{yr}-{mon}-0{dy}' ").format(fld=fields, yr=years, mon=months, dy=days),
+                                    sql.SQL("ORDER BY RANDOM() LIMIT {lim};").format(lim=limits)])
+            else:
+                query = sql.Composed([sql.SQL("SELECT * FROM {tbl} ").format(tbl=tables),
+                                    sql.SQL("WHERE {fld} ~* '^{yr}-{mon}-{dy}' ").format(fld=fields, yr=years, mon=months, dy=days),
+                                    sql.SQL("ORDER BY RANDOM() LIMIT {lim};").format(lim=limits)])
+        
+        # save to df and name file output
+        df = (sql_read(query))
+        filename = '{}_{}K_y{}m{:02d}d{:02d}_sample.csv'.format(table, sample_size, y, m, d)
+    
+    
+    elif (m != None): # filter for month only, if specified
+        
+        # define search-specific sql variables
+        months = sql.Literal(m)
+        
+        if m < 10: # for month less than 10; add leading 0
+            query = sql.Composed([sql.SQL("SELECT * FROM {tbl} ").format(tbl=tables),
+                                sql.SQL("WHERE {fld} ~* '^{yr}-0{mon}' ").format(fld=fields, yr=years, mon=months),
+                                sql.SQL("ORDER BY RANDOM() LIMIT {lim};").format(lim=limits)])
+        else:
+            query = sql.Composed([sql.SQL("SELECT * FROM {tbl} ").format(tbl=tables),
+                                sql.SQL("WHERE {fld} ~* '^{yr}-{mon}' ").format(fld=fields, yr=years, mon=months),
+                                sql.SQL("ORDER BY RANDOM() LIMIT {lim};").format(lim=limits)])
+        
+        # save to df and name file output
+        df = (sql_read(query))
+        filename = '{}_{}K_y{}m{:02d}d00_sample.csv'.format(table, sample_size, y, m)
+        
+    elif (d != None): # if specified, filter for specific days of the year (month-agnostic)
+        
+        # define search-specific sql variables
+        days = sql.Literal(d)
+        
+        if d < 10: # for month less than 10; add leading 0
+            query = sql.Composed([sql.SQL("SELECT * FROM {tbl} ").format(tbl=tables),
+                                sql.SQL("WHERE {fld} ~* '^{yr}-[0-9][0-9]-0{dy}$' ").format(fld=fields, yr=years, dy=days),
+                                sql.SQL("ORDER BY RANDOM() LIMIT {lim};").format(lim=limits)])
+        else:
+            query = sql.Composed([sql.SQL("SELECT * FROM {tbl} ").format(tbl=tables),
+                                sql.SQL("WHERE {fld} ~* '^{yr}-[0-9][0-9]-{dy}$' ").format(fld=fields, yr=years, dy=days),
+                                sql.SQL("ORDER BY RANDOM() LIMIT {lim};").format(lim=limits)])
+        
+        # save to df and name file output
+        df = (sql_read(query))
+        filename = '{}_{}K_y{}m00d{:02d}_sample.csv'.format(table, sample_size, y, d)
+    
+    
+    else: # no month defined; returns entire year by default, monthly samples constrained to limit
+        
+        # force january lookup to instantiate df
+        query = sql.Composed([sql.SQL("SELECT * FROM {tbl} ").format(tbl=tables),
+                            sql.SQL("WHERE {fld} ~* '^{yr}-01' ").format(fld=fields, yr=years),
+                            sql.SQL("ORDER BY RANDOM() LIMIT {lim};").format(lim=limits)])
+    
+        # define dataframe to return
+        df = (sql_read(query))
+        
+        # loop through all months to sample, then concatenate to df
+        for month in range(2,13):
+            
+            # define search-specific sql variables
+            months = sql.Literal(month)
+            
+            if month < 10: # for month less than 10; add leading 0
+                query = sql.Composed([sql.SQL("SELECT * FROM {tbl} ").format(tbl=tables),
+                                    sql.SQL("WHERE {fld} ~* '^{yr}-0{mon}' ").format(fld=fields, yr=years, mon=months),
+                                    sql.SQL("ORDER BY RANDOM() LIMIT {lim};").format(lim=limits)])
+
+                # append to existing df
+                df = pd.concat([df, sql_read(query)])
+            
+            else:
+                # for months more than 9; month has no leading 0
+                query = sql.Composed([sql.SQL("SELECT * FROM {tbl} ").format(tbl=tables),
+                                    sql.SQL("WHERE {fld} ~* '^{yr}-{mon}' ").format(fld=fields, yr=years, mon=months),
+                                    sql.SQL("ORDER BY RANDOM() LIMIT {lim};").format(lim=limits)])
+                
+                # append to existing df
+                df = pd.concat([df, sql_read(query)])
+                
+        filename = '{}_{}K_y{}m00d00_sample.csv'.format(table, sample_size, y)
+    
+    # check if file already exists
+    # if it sees local file, it only returns df
+    if os.path.exists(Path('./data') / filename) and overwrite==False:
+        print('File exists. Returning DataFrame...')
+        df = pd.read_csv(Path('./data') / filename)
+        return df
+
+    # writes csv file and returns df
+    print("Writing file...")
+    df.to_csv(Path('./data') / filename, index=False)
+    print("Returning DataFrame...")
+    return df
+
+  
 def replace_with_numeric(df, column):
     '''
-    input the data frame and the column to repalace the unique values with numeric values
+    input the data frame and the column to replace the unique values with numeric values
     '''
     unique_vals = df[column].unique()
     df[column].replace(to_replace=unique_vals,
@@ -496,7 +685,7 @@ def replace_with_numeric(df, column):
 
 def xgboost(X_train = X_train, y_train = y_train, n_estimators = 10, max_depth = 5, alpha = 10, num_boost_round = 50):
     '''
-    Set the params for XGBoost and perform corss validation by K-folds method, will eventually split the functions for more specificity
+    Set the params for XGBoost and perform cross validation by K-folds method, will eventually split the functions for more specificity
     '''
     xg_reg = xgb.XGBRegressor(objective = 'reg:linear', colsample_bytree = 0.3, learning_rate = 0.1, 
                           max_depth = max_depth, alpha = alpha, n_estimators = n_estimators)
