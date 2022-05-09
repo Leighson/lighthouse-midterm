@@ -704,3 +704,15 @@ def xgboost(X_train = X_train, y_train = y_train, n_estimators = 10, max_depth =
     
     print(cv_results)
     return
+
+
+def date_to_dtday(df, feature, form = 'day'):
+    '''
+    set date column to either binary or datetime numeric 
+    '''
+    df[feature] =  pd.to_datetime(test['fl_date'], format='%Y-%m-%d')
+    df[feature] = df[feature].dt.day_of_week
+    if form == 'binary':
+        df.loc[df[feature] <= 4] = 0
+        df.loc[df[feature] > 4] = 1
+    return df
