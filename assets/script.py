@@ -716,3 +716,31 @@ def date_to_dtday(df, feature, form = 'day'):
         df.loc[df[feature] <= 4] = 0
         df.loc[df[feature] > 4] = 1
     return df
+
+
+def set_class_grouping(df, feature):
+    '''
+    set class values for class feature - highly specific, only to be used for iterations of passenger table
+    '''
+    df.loc[df[feature] == 'A', feature] = 0
+    df.loc[df[feature] == 'F', feature] = 0
+    df.loc[df[feature] == 'C', feature] = 1
+    df.loc[df[feature] == 'J', feature] = 1
+    df.loc[df[feature] == 'R', feature] = 1
+    df.loc[df[feature] == 'D', feature] = 1
+    df.loc[df[feature] == 'I', feature] = 1
+    df.loc[df[feature] == 'W', feature] = 2
+    df.loc[df[feature] == 'P', feature] = 2
+    df.loc[df[feature] == 'Y', feature] = 3
+    df.loc[df[feature] == 'K', feature] = 3
+    df.loc[df[feature] == 'M', feature] = 3
+    df.loc[df[feature] == 'L', feature] = 3
+    df.loc[df[feature] == 'G', feature] = 3
+    df.loc[df[feature] == 'V', feature] = 3
+    df.loc[df[feature] == 'S', feature] = 3
+    df.loc[df[feature] == 'N', feature] = 4
+    df.loc[df[feature] == 'Q', feature] = 4
+    df.loc[df[feature] == 'O', feature] = 4
+    df.loc[df[feature] == 'E', feature] = 4
+    df.loc[df[feature] == 'B', feature] = 5
+    return df.head()
