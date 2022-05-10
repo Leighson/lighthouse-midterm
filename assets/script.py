@@ -713,8 +713,8 @@ def date_to_dtday(df, feature, form = 'day'):
     df[feature] =  pd.to_datetime(test['fl_date'], format='%Y-%m-%d')
     df[feature] = df[feature].dt.day_of_week
     if form == 'binary':
-        df.loc[df[feature] <= 4] = 0
-        df.loc[df[feature] > 4] = 1
+        df.loc[df[feature] <= 4, feature] = 0
+        df.loc[df[feature] > 4, feature] = 1
     return df
 
 
