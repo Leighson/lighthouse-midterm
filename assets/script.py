@@ -683,7 +683,7 @@ def replace_with_numeric(df, column):
     return
 
 
-def xgboost(X_train = X_train, y_train = y_train, n_estimators = 10, max_depth = 5, alpha = 10, num_boost_round = 50):
+def xgboost(X_train, y_train, n_estimators = 10, max_depth = 5, alpha = 10, num_boost_round = 50):
     '''
     Set the params for XGBoost and perform cross validation by K-folds method, will eventually split the functions for more specificity
     '''
