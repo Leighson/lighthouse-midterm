@@ -309,8 +309,7 @@ def unique_values(df):
     '''
     for i in range(len(df.columns)):
         unique =  df.iloc[:, i].unique()
-        print(unique)
-        
+        print(i, unique)
     return
 
 
@@ -708,7 +707,7 @@ def xgboost(X_train, y_train, n_estimators = 10, max_depth = 5, alpha = 10, num_
 
 def date_to_dtday(df, feature, form = 'day'):
     '''
-    set date column to either binary or datetime numeric 
+    set date column to either binary for grouping of weekd and weekend
     '''
     df[feature] =  pd.to_datetime(test['fl_date'], format='%Y-%m-%d')
     df[feature] = df[feature].dt.day_of_week
