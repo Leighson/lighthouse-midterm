@@ -310,8 +310,7 @@ def unique_values(df):
     '''
     for i in range(len(df.columns)):
         unique =  df.iloc[:, i].unique()
-        print(unique)
-        
+        print(i, unique)
     return
 
 
@@ -701,7 +700,7 @@ def replace_with_numeric(df, column):
     return
 
 
-def xgboost(df, target, params, cv_params, weight=None, scaler=None, gridsearch=False):
+def xgboost_gscv(df, target, params, cv_params, weight=None, scaler=None, gridsearch=False):
     """
     Set the params for XGBoost and cross-validation using XGBoost method.
     Optionally set to optimize hyperparameters using GridSearchCV before performing
@@ -789,5 +788,88 @@ def xgboost(df, target, params, cv_params, weight=None, scaler=None, gridsearch=
     
     print('CV Results: ')
     return cv_results
+  
+  
+def xgboost(X_train, y_train, n_estimators = 10, max_depth = 5, alpha = 10, num_boost_round = 50):
+    '''
+    Set the params for XGBoost and perform cross validation by K-folds method, will eventually split the functions for more specificity
+    '''
+    xg_reg = xgb.XGBRegressor(objective = 'reg:linear', colsample_bytree = 0.3, learning_rate = 0.1, 
+                          max_depth = max_depth, alpha = alpha, n_estimators = n_estimators)
+
+    xg_reg.fit(X_train, y_train)
+    y_pred = xg_reg.predict(X_test)
+    
+    # calculate initial RMSE score using predicted and test targets
+    rmse = np.sqrt(mean_squared_error(y_test, y_pred))
+    print('RMSE: %f' % (rmse))
+
+    if gridsearch == True:
+        clf = GridSearchCV(estimator=xg_reg, param_grid=params, n_jobs=-1)
+        clf.fit(X_train, y_train)
+        
+        # view the accuracy score and best hyperparameter settings
+        print('Best score for training:', clf.best_score_)
+        print('Best hyperparameters: ', clf.best_params_)
+        
+        # apply classifier to testing dataset using best params
+        clf.score(X_test, y_test)
+        
+    # with as_pandas set to True, results in df of cv_results
+    cv_results = xgb.cv(
+        dtrain=dtrain,
+        params=params,
+        nfold=cv_params['nfold'],
+        num_boost_round=cv_params['num_boost_round'],
+        early_stopping_rounds=cv_params['early_stopping_rounds'],
+        metrics="rmse",
+        as_pandas=True)
+    
+
+    # cv_results are separated into train and test datasets.
+    # each describes scores based on the set metrics to evaluate.
+    # in this case, it will return 'rsme' scores as mean and std
+    # aggregations of the folds.
+    
+    print('CV Results: ')
+    return cv_results
 
 
+def date_to_dtday(df, feature, form = 'day'):
+    '''
+    set date column to either binary for grouping of weekd and weekend
+    '''
+    df[feature] =  pd.to_datetime(test['fl_date'], format='%Y-%m-%d')
+    df[feature] = df[feature].dt.day_of_week
+    if form == 'binary':
+        df.loc[df[feature] <= 4, feature] = 0
+        df.loc[df[feature] > 4, feature] = 1
+    return df
+
+
+def set_class_grouping(df, feature):
+    '''
+    set class values for class feature - highly specific, only to be used for iterations of passenger table
+    '''
+    df.loc[df[feature] == 'A', feature] = 0
+    df.loc[df[feature] == 'F', feature] = 0
+    df.loc[df[feature] == 'C', feature] = 1
+    df.loc[df[feature] == 'J', feature] = 1
+    df.loc[df[feature] == 'R', feature] = 1
+    df.loc[df[feature] == 'D', feature] = 1
+    df.loc[df[feature] == 'I', feature] = 1
+    df.loc[df[feature] == 'W', feature] = 2
+    df.loc[df[feature] == 'P', feature] = 2
+    df.loc[df[feature] == 'Y', feature] = 3
+    df.loc[df[feature] == 'K', feature] = 3
+    df.loc[df[feature] == 'M', feature] = 3
+    df.loc[df[feature] == 'L', feature] = 3
+    df.loc[df[feature] == 'G', feature] = 3
+    df.loc[df[feature] == 'V', feature] = 3
+    df.loc[df[feature] == 'S', feature] = 3
+    df.loc[df[feature] == 'N', feature] = 4
+    df.loc[df[feature] == 'Q', feature] = 4
+    df.loc[df[feature] == 'O', feature] = 4
+    df.loc[df[feature] == 'E', feature] = 4
+    df.loc[df[feature] == 'B', feature] = 5
+    return df.head()
