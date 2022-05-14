@@ -1,4 +1,5 @@
 from multiprocessing.sharedctypes import Value
+import matplotlib
 import numpy as np
 import pandas as pd
 from sklearn.model_selection import GridSearchCV
@@ -555,133 +556,160 @@ def sql_search_date(table, field='fl_date', y=2019, m=None, d=None, limit=1000, 
     limits = sql.Literal(limit)
     sample_size = int(limit/1000)
     
-    if (m != None) and (d != None): # filter for month and day, if specified
-        
-        # check if file already exists
-        # if it sees local file, it only returns df
-        filename = '{}_{}K_y{}m{:02d}d{:02d}_sample.csv'.format(table, sample_size, y, m, d)
-        if os.path.exists(Path('./data') / filename) and overwrite==False:
-            print('File exists. Returning DataFrame...')
-            df = pd.read_csv(Path('./data') / filename)
-            return df
-        
-        # define search-specific sql variables
-        months = sql.Literal(m)
-        days = sql.Literal(d)
-        
-        if m < 10: # for months/days less than 10; add leading 0
-            if d < 10:
-                query = sql.Composed([sql.SQL("SELECT * FROM {tbl} ").format(tbl=tables),
-                                    sql.SQL("WHERE {fld} ~* '^{yr}-0{mon}-0{dy}' ").format(fld=fields, yr=years, mon=months, dy=days),
-                                    sql.SQL("ORDER BY RANDOM() LIMIT {lim};").format(lim=limits)])
-            else:
-                query = sql.Composed([sql.SQL("SELECT * FROM {tbl} ").format(tbl=tables),
-                                    sql.SQL("WHERE {fld} ~* '^{yr}-0{mon}-{dy}' ").format(fld=fields, yr=years, mon=months, dy=days),
-                                    sql.SQL("ORDER BY RANDOM() LIMIT {lim};").format(lim=limits)])
-        else:
-            if d < 10:
-                query = sql.Composed([sql.SQL("SELECT * FROM {tbl} ").format(tbl=tables),
-                                    sql.SQL("WHERE {fld} ~* '^{yr}-{mon}-0{dy}' ").format(fld=fields, yr=years, mon=months, dy=days),
-                                    sql.SQL("ORDER BY RANDOM() LIMIT {lim};").format(lim=limits)])
-            else:
-                query = sql.Composed([sql.SQL("SELECT * FROM {tbl} ").format(tbl=tables),
-                                    sql.SQL("WHERE {fld} ~* '^{yr}-{mon}-{dy}' ").format(fld=fields, yr=years, mon=months, dy=days),
-                                    sql.SQL("ORDER BY RANDOM() LIMIT {lim};").format(lim=limits)])
-        
-        # save to df and name file output
-        df = (sql_read(query))
+    if field == 'fl_date' and table == 'flights':
     
-    elif (m != None): # filter for month only, if specified
-        
-        # check if file already exists
-        # if it sees local file, it only returns df
-        filename = '{}_{}K_y{}m{:02d}d00_sample.csv'.format(table, sample_size, y, m)
-        if os.path.exists(Path('./data') / filename) and overwrite==False:
-            print('File exists. Returning DataFrame...')
-            df = pd.read_csv(Path('./data') / filename)
-            return df
-        
-        # define search-specific sql variables
-        months = sql.Literal(m)
-        
-        if m < 10: # for month less than 10; add leading 0
-            query = sql.Composed([sql.SQL("SELECT * FROM {tbl} ").format(tbl=tables),
-                                sql.SQL("WHERE {fld} ~* '^{yr}-0{mon}' ").format(fld=fields, yr=years, mon=months),
-                                sql.SQL("ORDER BY RANDOM() LIMIT {lim};").format(lim=limits)])
-        else:
-            query = sql.Composed([sql.SQL("SELECT * FROM {tbl} ").format(tbl=tables),
-                                sql.SQL("WHERE {fld} ~* '^{yr}-{mon}' ").format(fld=fields, yr=years, mon=months),
-                                sql.SQL("ORDER BY RANDOM() LIMIT {lim};").format(lim=limits)])
-        
-        # save to df and name file output
-        df = (sql_read(query))
-        
-    elif (d != None): # if specified, filter for specific days of the year (month-agnostic)
-        
-        # check if file already exists
-        # if it sees local file, it only returns df
-        filename = '{}_{}K_y{}m00d{:02d}_sample.csv'.format(table, sample_size, y, d)
-        if os.path.exists(Path('./data') / filename) and overwrite==False:
-            print('File exists. Returning DataFrame...')
-            df = pd.read_csv(Path('./data') / filename)
-            return df
-        
-        # define search-specific sql variables
-        days = sql.Literal(d)
-        
-        if d < 10: # for month less than 10; add leading 0
-            query = sql.Composed([sql.SQL("SELECT * FROM {tbl} ").format(tbl=tables),
-                                sql.SQL("WHERE {fld} ~* '^{yr}-[0-9][0-9]-0{dy}$' ").format(fld=fields, yr=years, dy=days),
-                                sql.SQL("ORDER BY RANDOM() LIMIT {lim};").format(lim=limits)])
-        else:
-            query = sql.Composed([sql.SQL("SELECT * FROM {tbl} ").format(tbl=tables),
-                                sql.SQL("WHERE {fld} ~* '^{yr}-[0-9][0-9]-{dy}$' ").format(fld=fields, yr=years, dy=days),
-                                sql.SQL("ORDER BY RANDOM() LIMIT {lim};").format(lim=limits)])
-        
-        # save to df and name file output
-        df = (sql_read(query))
-    
-    else: # no month defined; returns entire year by default, monthly samples constrained to limit
-        
-        # check if file already exists
-        # if it sees local file, it only returns df
-        filename = '{}_{}K_y{}m00d00_sample.csv'.format(table, sample_size, y)
-        if os.path.exists(Path('./data') / filename) and overwrite==False:
-            print('File exists. Returning DataFrame...')
-            df = pd.read_csv(Path('./data') / filename)
-            return df
-        
-        # force january lookup to instantiate df
-        query = sql.Composed([sql.SQL("SELECT * FROM {tbl} ").format(tbl=tables),
-                            sql.SQL("WHERE {fld} ~* '^{yr}-01' ").format(fld=fields, yr=years),
-                            sql.SQL("ORDER BY RANDOM() LIMIT {lim};").format(lim=limits)])
-    
-        # define dataframe to return
-        df = (sql_read(query))
-        
-        # loop through all months to sample, then concatenate to df
-        for month in range(2,13):
+        if (m != None) and (d != None): # filter for month and day, if specified
+            
+            # check if file already exists
+            # if it sees local file, it only returns df
+            filename = '{}_{}K_y{}m{:02d}d{:02d}_sample.csv'.format(table, sample_size, y, m, d)
+            if os.path.exists(Path('./data') / filename) and overwrite==False:
+                print('File exists. Returning DataFrame...')
+                df = pd.read_csv(Path('./data') / filename)
+                return df
             
             # define search-specific sql variables
-            months = sql.Literal(month)
+            months = sql.Literal(m)
+            days = sql.Literal(d)
             
-            if month < 10: # for month less than 10; add leading 0
+            if m < 10: # for months/days less than 10; add leading 0
+                if d < 10:
+                    query = sql.Composed([sql.SQL("SELECT * FROM {tbl} ").format(tbl=tables),
+                                        sql.SQL("WHERE {fld} ~* '^{yr}-0{mon}-0{dy}' ").format(fld=fields, yr=years, mon=months, dy=days),
+                                        sql.SQL("ORDER BY RANDOM() LIMIT {lim};").format(lim=limits)])
+                else:
+                    query = sql.Composed([sql.SQL("SELECT * FROM {tbl} ").format(tbl=tables),
+                                        sql.SQL("WHERE {fld} ~* '^{yr}-0{mon}-{dy}' ").format(fld=fields, yr=years, mon=months, dy=days),
+                                        sql.SQL("ORDER BY RANDOM() LIMIT {lim};").format(lim=limits)])
+            else:
+                if d < 10:
+                    query = sql.Composed([sql.SQL("SELECT * FROM {tbl} ").format(tbl=tables),
+                                        sql.SQL("WHERE {fld} ~* '^{yr}-{mon}-0{dy}' ").format(fld=fields, yr=years, mon=months, dy=days),
+                                        sql.SQL("ORDER BY RANDOM() LIMIT {lim};").format(lim=limits)])
+                else:
+                    query = sql.Composed([sql.SQL("SELECT * FROM {tbl} ").format(tbl=tables),
+                                        sql.SQL("WHERE {fld} ~* '^{yr}-{mon}-{dy}' ").format(fld=fields, yr=years, mon=months, dy=days),
+                                        sql.SQL("ORDER BY RANDOM() LIMIT {lim};").format(lim=limits)])
+            
+            # save to df and name file output
+            df = (sql_read(query))
+        
+        elif (m != None): # filter for month only, if specified
+            
+            # check if file already exists
+            # if it sees local file, it only returns df
+            filename = '{}_{}K_y{}m{:02d}d00_sample.csv'.format(table, sample_size, y, m)
+            if os.path.exists(Path('./data') / filename) and overwrite==False:
+                print('File exists. Returning DataFrame...')
+                df = pd.read_csv(Path('./data') / filename)
+                return df
+            
+            # define search-specific sql variables
+            months = sql.Literal(m)
+            
+            if m < 10: # for month less than 10; add leading 0
                 query = sql.Composed([sql.SQL("SELECT * FROM {tbl} ").format(tbl=tables),
                                     sql.SQL("WHERE {fld} ~* '^{yr}-0{mon}' ").format(fld=fields, yr=years, mon=months),
                                     sql.SQL("ORDER BY RANDOM() LIMIT {lim};").format(lim=limits)])
-
-                # append to existing df
-                df = pd.concat([df, sql_read(query)])
-            
             else:
-                # for months more than 9; month has no leading 0
                 query = sql.Composed([sql.SQL("SELECT * FROM {tbl} ").format(tbl=tables),
                                     sql.SQL("WHERE {fld} ~* '^{yr}-{mon}' ").format(fld=fields, yr=years, mon=months),
                                     sql.SQL("ORDER BY RANDOM() LIMIT {lim};").format(lim=limits)])
+            
+            # save to df and name file output
+            df = (sql_read(query))
+            
+        elif (d != None): # if specified, filter for specific days of the year (month-agnostic)
+            
+            # check if file already exists
+            # if it sees local file, it only returns df
+            filename = '{}_{}K_y{}m00d{:02d}_sample.csv'.format(table, sample_size, y, d)
+            if os.path.exists(Path('./data') / filename) and overwrite==False:
+                print('File exists. Returning DataFrame...')
+                df = pd.read_csv(Path('./data') / filename)
+                return df
+            
+            # define search-specific sql variables
+            days = sql.Literal(d)
+            
+            if d < 10: # for month less than 10; add leading 0
+                query = sql.Composed([sql.SQL("SELECT * FROM {tbl} ").format(tbl=tables),
+                                    sql.SQL("WHERE {fld} ~* '^{yr}-[0-9][0-9]-0{dy}$' ").format(fld=fields, yr=years, dy=days),
+                                    sql.SQL("ORDER BY RANDOM() LIMIT {lim};").format(lim=limits)])
+            else:
+                query = sql.Composed([sql.SQL("SELECT * FROM {tbl} ").format(tbl=tables),
+                                    sql.SQL("WHERE {fld} ~* '^{yr}-[0-9][0-9]-{dy}$' ").format(fld=fields, yr=years, dy=days),
+                                    sql.SQL("ORDER BY RANDOM() LIMIT {lim};").format(lim=limits)])
+            
+            # save to df and name file output
+            df = (sql_read(query))
+        
+        else: # no month defined; returns entire year by default, monthly samples constrained to limit
+            
+            # check if file already exists
+            # if it sees local file, it only returns df
+            filename = '{}_{}K_y{}m00d00_sample.csv'.format(table, sample_size, y)
+            if os.path.exists(Path('./data') / filename) and overwrite==False:
+                print('File exists. Returning DataFrame...')
+                df = pd.read_csv(Path('./data') / filename)
+                return df
+            
+            # force january lookup to instantiate df
+            query = sql.Composed([sql.SQL("SELECT * FROM {tbl} ").format(tbl=tables),
+                                sql.SQL("WHERE {fld} ~* '^{yr}-01' ").format(fld=fields, yr=years),
+                                sql.SQL("ORDER BY RANDOM() LIMIT {lim};").format(lim=limits)])
+        
+            # define dataframe to return
+            df = (sql_read(query))
+            
+            # loop through all months to sample, then concatenate to df
+            for month in range(2,13):
                 
-                # append to existing df
-                df = pd.concat([df, sql_read(query)])
+                # define search-specific sql variables
+                months = sql.Literal(month)
+                
+                if month < 10: # for month less than 10; add leading 0
+                    query = sql.Composed([sql.SQL("SELECT * FROM {tbl} ").format(tbl=tables),
+                                        sql.SQL("WHERE {fld} ~* '^{yr}-0{mon}' ").format(fld=fields, yr=years, mon=months),
+                                        sql.SQL("ORDER BY RANDOM() LIMIT {lim};").format(lim=limits)])
 
+                    # append to existing df
+                    df = pd.concat([df, sql_read(query)])
+                
+                else:
+                    # for months more than 9; month has no leading 0
+                    query = sql.Composed([sql.SQL("SELECT * FROM {tbl} ").format(tbl=tables),
+                                        sql.SQL("WHERE {fld} ~* '^{yr}-{mon}' ").format(fld=fields, yr=years, mon=months),
+                                        sql.SQL("ORDER BY RANDOM() LIMIT {lim};").format(lim=limits)])
+                    
+                    # append to existing df
+                    df = pd.concat([df, sql_read(query)])
+                    
+    elif table == 'passengers':
+        
+        filename = '{}_{}K_y{}_sample.csv'.format(table, sample_size, y)
+        
+        if os.path.exists(Path('./data') / filename) and overwrite==False:
+            print('File exists. Returning DataFrame...')
+            df = pd.read_csv(Path('./data') / filename)
+            return df
+        
+        months = [i for i in range(1,13)]
+        for m in months:
+            months = sql.Literal(m)
+            query = sql.Composed(
+                [sql.SQL("SELECT * FROM {tbl} ").format(tbl=tables),
+                sql.SQL("WHERE {fld} ~* '^{mo}' ").format(fld=fields, mo=months),
+                sql.SQL("ORDER BY RANDOM() LIMIT {lim};").format(lim=limits)]
+                )
+
+        # save to df and name file output
+        df = (sql_read(query))
+        
+    elif table == '':
+        
+        filename = '{}_{}K_y{}_sample.csv'.format(table, sample_size, y)
+    
     # writes csv file and returns df
     print("Writing file...")
     df.to_csv(Path('./data') / filename, index=False)
@@ -700,7 +728,7 @@ def replace_with_numeric(df, column):
     return
 
 
-def xgboost_gscv(df, target, params, cv_params, weight=None, scaler=None, gridsearch=False):
+def xgboost_det(df, target, params, cv_params, features, drop=None, weight=None, scaler=None, gridsearch=False):
     """
     Set the params for XGBoost and cross-validation using XGBoost method.
     Optionally set to optimize hyperparameters using GridSearchCV before performing
@@ -718,7 +746,8 @@ def xgboost_gscv(df, target, params, cv_params, weight=None, scaler=None, gridse
         'max_depth' : 6 maximum depth of a tree. Decrease to diminish overfitting. Computationally expensive.
         'lambda' : 1, L2 regularization. Increase to make model more conservative.
         'alpha' : 0, L1 regularization. Increase to make model more conservative.
-        'n_estimators' : set number of trees for the ensemble.
+        'n_estimators' : set number of 
+        trees for the ensemble.
         
     CV_PARAMS
         'nfold' : 5, number of k-folds.
@@ -735,19 +764,18 @@ def xgboost_gscv(df, target, params, cv_params, weight=None, scaler=None, gridse
     
     # import libraries
     import xgboost as xgb
+    import matplotlib.pyplot as plt
     from sklearn.metrics import mean_squared_error
     from sklearn.model_selection import GridSearchCV
     
     # split data into training and scale
     # decision tree based algorithms are not sensitive to scaling, but it wouldn't hurt
     # in our case, min/max scaling would be appropriate because our target is not normally distributed
-    X_train, X_test, y_train, y_test = split_data(df, target, drop_list=None, scaler=scaler)
+    X_train, X_test, y_train, y_test = split_data(df, target, drop_list=drop, scaler=scaler)
     
     # create training data structured using XGBoost DMatrix
     # for use during cross validation
-    X = df.drop([target], axis=1)
-    y = df[target]
-    dtrain = xgb.DMatrix(data=X, label=y)
+    dtrain = xgb.DMatrix(data=X_train, label=y_train)
     
     # instantiate XGBoost regression model
     xg_reg = xgb.XGBRegressor()
@@ -756,9 +784,26 @@ def xgboost_gscv(df, target, params, cv_params, weight=None, scaler=None, gridse
     xg_reg.fit(X_train, y_train)
     y_pred = xg_reg.predict(X_test)
     
+    xg_reg.get_booster().feature_names = features
+    
     # calculate initial RMSE score using predicted and test targets
     rmse = np.sqrt(mean_squared_error(y_test, y_pred))
     print('RMSE: %f' % (rmse))
+    
+    #plots
+    plt.rcParams['figure.figsize'] = [10, 8]
+    
+    # plot decision tree
+    # xgb.plot_tree(xg_reg, num_trees=0)
+    # plt.show()
+    
+    # plot feature importance
+    xgb.plot_importance(xg_reg.get_booster())
+    plt.show()
+    
+    chart = plt.gcf()
+    
+    chart.savefig('chart.png', dpi = 300)
 
     if gridsearch == True:
         clf = GridSearchCV(estimator=xg_reg, param_grid=params, n_jobs=-1)
@@ -770,11 +815,11 @@ def xgboost_gscv(df, target, params, cv_params, weight=None, scaler=None, gridse
         
         # apply classifier to testing dataset using best params
         clf.score(X_test, y_test)
-        
+    
     # with as_pandas set to True, results in df of cv_results
     cv_results = xgb.cv(
-        dtrain=dtrain,
-        params=params,
+        df=X_train,
+        params=clf.best_params_,
         nfold=cv_params['nfold'],
         num_boost_round=cv_params['num_boost_round'],
         early_stopping_rounds=cv_params['early_stopping_rounds'],
@@ -786,59 +831,57 @@ def xgboost_gscv(df, target, params, cv_params, weight=None, scaler=None, gridse
     # in this case, it will return 'rsme' scores as mean and std
     # aggregations of the folds.
     
-    print('CV Results: ')
-    return cv_results
-  
-  
-def xgboost(X_train, y_train, n_estimators = 10, max_depth = 5, alpha = 10, num_boost_round = 50):
+    print('CV Results:', cv_results)
+    return y_pred, cv_results
+
+
+def xgboost(X_train, X_test, y_train, y_test, n_estimators = 10, max_depth = 5, alpha = 10, num_boost_round = 50):
     '''
     Set the params for XGBoost and perform cross validation by K-folds method, will eventually split the functions for more specificity
     '''
+     # import libraries
+    import xgboost as xgb
+    import pandas as pd
+    from sklearn.metrics import mean_squared_error
+    from sklearn.model_selection import GridSearchCV
+    
     xg_reg = xgb.XGBRegressor(objective = 'reg:linear', colsample_bytree = 0.3, learning_rate = 0.1, 
                           max_depth = max_depth, alpha = alpha, n_estimators = n_estimators)
-
     xg_reg.fit(X_train, y_train)
     y_pred = xg_reg.predict(X_test)
+    
+    dtrain = xgb.DMatrix(data=X_train, label=y_train)
     
     # calculate initial RMSE score using predicted and test targets
     rmse = np.sqrt(mean_squared_error(y_test, y_pred))
     print('RMSE: %f' % (rmse))
-
-    if gridsearch == True:
-        clf = GridSearchCV(estimator=xg_reg, param_grid=params, n_jobs=-1)
-        clf.fit(X_train, y_train)
-        
-        # view the accuracy score and best hyperparameter settings
-        print('Best score for training:', clf.best_score_)
-        print('Best hyperparameters: ', clf.best_params_)
-        
-        # apply classifier to testing dataset using best params
-        clf.score(X_test, y_test)
         
     # with as_pandas set to True, results in df of cv_results
     cv_results = xgb.cv(
         dtrain=dtrain,
-        params=params,
-        nfold=cv_params['nfold'],
-        num_boost_round=cv_params['num_boost_round'],
-        early_stopping_rounds=cv_params['early_stopping_rounds'],
+        params= dict(
+            objective = 'reg:linear',
+            colsample_bytree = 0.3,
+            learning_rate = 0.1,
+            max_depth = max_depth,
+            alpha = alpha,
+            n_estimators = n_estimators),
+        nfold=5,
+        num_boost_round=max_depth,
+        early_stopping_rounds=10,
         metrics="rmse",
-        as_pandas=True)
+        as_pandas=True
+        )
     
-
-    # cv_results are separated into train and test datasets.
-    # each describes scores based on the set metrics to evaluate.
-    # in this case, it will return 'rsme' scores as mean and std
-    # aggregations of the folds.
-    
-    print('CV Results: ')
-    return cv_results
+    print(cv_results)
+    return
 
 
 def date_to_dtday(df, feature, form = 'day'):
     '''
     set date column to either binary for grouping of weekd and weekend
     '''
+
     df[feature] =  pd.to_datetime(df[feature], format='%Y-%m-%d')
     df[feature] = df[feature].dt.day_of_week
     if form == 'binary':
