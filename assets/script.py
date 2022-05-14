@@ -1,8 +1,9 @@
 from multiprocessing.sharedctypes import Value
 import numpy as np
 import pandas as pd
+from sklearn.model_selection import GridSearchCV
 
-def split_data(df, target, drop_list=None, scaler=None):
+def split_data(df, target, drop_list=None, scaler=None, test_size=0.2):
     '''
     When using scalers: \n
     'standard' scales around the distribution mean and standard deviation.  \\
@@ -62,7 +63,7 @@ def split_data(df, target, drop_list=None, scaler=None):
         X = scl.transform(X)
     
     # train-test split, random_state defined for repeatability
-    X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=0.2, random_state=42)
+    X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=test_size)
 
     print("training sample size: ", len(y_train))
     print("testing sample size: ", len(y_test))
@@ -554,8 +555,15 @@ def sql_search_date(table, field='fl_date', y=2019, m=None, d=None, limit=1000, 
     limits = sql.Literal(limit)
     sample_size = int(limit/1000)
     
-    
     if (m != None) and (d != None): # filter for month and day, if specified
+        
+        # check if file already exists
+        # if it sees local file, it only returns df
+        filename = '{}_{}K_y{}m{:02d}d{:02d}_sample.csv'.format(table, sample_size, y, m, d)
+        if os.path.exists(Path('./data') / filename) and overwrite==False:
+            print('File exists. Returning DataFrame...')
+            df = pd.read_csv(Path('./data') / filename)
+            return df
         
         # define search-specific sql variables
         months = sql.Literal(m)
@@ -582,10 +590,16 @@ def sql_search_date(table, field='fl_date', y=2019, m=None, d=None, limit=1000, 
         
         # save to df and name file output
         df = (sql_read(query))
-        filename = '{}_{}K_y{}m{:02d}d{:02d}_sample.csv'.format(table, sample_size, y, m, d)
-    
     
     elif (m != None): # filter for month only, if specified
+        
+        # check if file already exists
+        # if it sees local file, it only returns df
+        filename = '{}_{}K_y{}m{:02d}d00_sample.csv'.format(table, sample_size, y, m)
+        if os.path.exists(Path('./data') / filename) and overwrite==False:
+            print('File exists. Returning DataFrame...')
+            df = pd.read_csv(Path('./data') / filename)
+            return df
         
         # define search-specific sql variables
         months = sql.Literal(m)
@@ -601,9 +615,16 @@ def sql_search_date(table, field='fl_date', y=2019, m=None, d=None, limit=1000, 
         
         # save to df and name file output
         df = (sql_read(query))
-        filename = '{}_{}K_y{}m{:02d}d00_sample.csv'.format(table, sample_size, y, m)
         
     elif (d != None): # if specified, filter for specific days of the year (month-agnostic)
+        
+        # check if file already exists
+        # if it sees local file, it only returns df
+        filename = '{}_{}K_y{}m00d{:02d}_sample.csv'.format(table, sample_size, y, d)
+        if os.path.exists(Path('./data') / filename) and overwrite==False:
+            print('File exists. Returning DataFrame...')
+            df = pd.read_csv(Path('./data') / filename)
+            return df
         
         # define search-specific sql variables
         days = sql.Literal(d)
@@ -619,10 +640,16 @@ def sql_search_date(table, field='fl_date', y=2019, m=None, d=None, limit=1000, 
         
         # save to df and name file output
         df = (sql_read(query))
-        filename = '{}_{}K_y{}m00d{:02d}_sample.csv'.format(table, sample_size, y, d)
-    
     
     else: # no month defined; returns entire year by default, monthly samples constrained to limit
+        
+        # check if file already exists
+        # if it sees local file, it only returns df
+        filename = '{}_{}K_y{}m00d00_sample.csv'.format(table, sample_size, y)
+        if os.path.exists(Path('./data') / filename) and overwrite==False:
+            print('File exists. Returning DataFrame...')
+            df = pd.read_csv(Path('./data') / filename)
+            return df
         
         # force january lookup to instantiate df
         query = sql.Composed([sql.SQL("SELECT * FROM {tbl} ").format(tbl=tables),
@@ -654,15 +681,6 @@ def sql_search_date(table, field='fl_date', y=2019, m=None, d=None, limit=1000, 
                 
                 # append to existing df
                 df = pd.concat([df, sql_read(query)])
-                
-        filename = '{}_{}K_y{}m00d00_sample.csv'.format(table, sample_size, y)
-    
-    # check if file already exists
-    # if it sees local file, it only returns df
-    if os.path.exists(Path('./data') / filename) and overwrite==False:
-        print('File exists. Returning DataFrame...')
-        df = pd.read_csv(Path('./data') / filename)
-        return df
 
     # writes csv file and returns df
     print("Writing file...")
@@ -682,27 +700,139 @@ def replace_with_numeric(df, column):
     return
 
 
+def xgboost_gscv(df, target, params, cv_params, weight=None, scaler=None, gridsearch=False):
+    """
+    Set the params for XGBoost and cross-validation using XGBoost method.
+    Optionally set to optimize hyperparameters using GridSearchCV before performing
+    the cross validation.
+    
+    https://xgboost.readthedocs.io/en/latest/parameter.html
+    
+    Hyperparameters:
+    
+    PARAMS
+        'objective' : 'reg:squarederror', 'reg:logistic', 'binary:logistic', or 'multi:softmax'
+         - 'num_class' : int, set this according to class count if using 'multi:softmax' as objective.
+        'colsample_bytree' : 1, subsample ratio of columns when constructing each tree.
+        'learning_rate' : 0.3, step size shrinkage used in update to prevents overfitting. 
+        'max_depth' : 6 maximum depth of a tree. Decrease to diminish overfitting. Computationally expensive.
+        'lambda' : 1, L2 regularization. Increase to make model more conservative.
+        'alpha' : 0, L1 regularization. Increase to make model more conservative.
+        'n_estimators' : set number of trees for the ensemble.
+        
+    CV_PARAMS
+        'nfold' : 5, number of k-folds.
+        'num_boost_round' : int, same as 'n_estimators'. Can set different number here.
+        'early_stopping_rounds' : 10, stop count for validation set if the performance doesn't improve.
+        
+    Args:
+        df (pd.DataFrame): _description_
+        target (str): pass the column/field name of target variable as string.
+        params (dict): params.keys as parameter names, params.values as parameter values.
+        scaler (str, optional): 'standard' or 'minmax'. Defaults to None.
+        gridsearch (bool, optional): performs GridSearchCV to optimize for hyperparameters. Defaults to False.
+    """
+    
+    # import libraries
+    import xgboost as xgb
+    from sklearn.metrics import mean_squared_error
+    from sklearn.model_selection import GridSearchCV
+    
+    # split data into training and scale
+    # decision tree based algorithms are not sensitive to scaling, but it wouldn't hurt
+    # in our case, min/max scaling would be appropriate because our target is not normally distributed
+    X_train, X_test, y_train, y_test = split_data(df, target, drop_list=None, scaler=scaler)
+    
+    # create training data structured using XGBoost DMatrix
+    # for use during cross validation
+    X = df.drop([target], axis=1)
+    y = df[target]
+    dtrain = xgb.DMatrix(data=X, label=y)
+    
+    # instantiate XGBoost regression model
+    xg_reg = xgb.XGBRegressor()
+    
+    # fit data to model and predict using test data from split_data
+    xg_reg.fit(X_train, y_train)
+    y_pred = xg_reg.predict(X_test)
+    
+    # calculate initial RMSE score using predicted and test targets
+    rmse = np.sqrt(mean_squared_error(y_test, y_pred))
+    print('RMSE: %f' % (rmse))
+
+    if gridsearch == True:
+        clf = GridSearchCV(estimator=xg_reg, param_grid=params, n_jobs=-1)
+        clf.fit(X_train, y_train)
+        
+        # view the accuracy score and best hyperparameter settings
+        print('Best score for training:', clf.best_score_)
+        print('Best hyperparameters: ', clf.best_params_)
+        
+        # apply classifier to testing dataset using best params
+        clf.score(X_test, y_test)
+        
+    # with as_pandas set to True, results in df of cv_results
+    cv_results = xgb.cv(
+        dtrain=dtrain,
+        params=params,
+        nfold=cv_params['nfold'],
+        num_boost_round=cv_params['num_boost_round'],
+        early_stopping_rounds=cv_params['early_stopping_rounds'],
+        metrics="rmse",
+        as_pandas=True)
+    
+    # cv_results are separated into train and test datasets.
+    # each describes scores based on the set metrics to evaluate.
+    # in this case, it will return 'rsme' scores as mean and std
+    # aggregations of the folds.
+    
+    print('CV Results: ')
+    return cv_results
+  
+  
 def xgboost(X_train, y_train, n_estimators = 10, max_depth = 5, alpha = 10, num_boost_round = 50):
     '''
     Set the params for XGBoost and perform cross validation by K-folds method, will eventually split the functions for more specificity
     '''
     xg_reg = xgb.XGBRegressor(objective = 'reg:linear', colsample_bytree = 0.3, learning_rate = 0.1, 
                           max_depth = max_depth, alpha = alpha, n_estimators = n_estimators)
+
     xg_reg.fit(X_train, y_train)
     y_pred = xg_reg.predict(X_test)
     
+    # calculate initial RMSE score using predicted and test targets
     rmse = np.sqrt(mean_squared_error(y_test, y_pred))
     print('RMSE: %f' % (rmse))
-    
-    params = {"objective":"reg:linear", 'colsample_bytree': 0.3, 
-          'learning_rate': 0.1, 'max_depth': 5, 'alpha': 10}
 
-    cv_results = xgb.cv(dtrain=data_dmatrix, params=params, nfold=3,
-                        num_boost_round=num_boost_round,early_stopping_rounds=10,metrics="rmse", 
-                        as_pandas=True, seed=123)
+    if gridsearch == True:
+        clf = GridSearchCV(estimator=xg_reg, param_grid=params, n_jobs=-1)
+        clf.fit(X_train, y_train)
+        
+        # view the accuracy score and best hyperparameter settings
+        print('Best score for training:', clf.best_score_)
+        print('Best hyperparameters: ', clf.best_params_)
+        
+        # apply classifier to testing dataset using best params
+        clf.score(X_test, y_test)
+        
+    # with as_pandas set to True, results in df of cv_results
+    cv_results = xgb.cv(
+        dtrain=dtrain,
+        params=params,
+        nfold=cv_params['nfold'],
+        num_boost_round=cv_params['num_boost_round'],
+        early_stopping_rounds=cv_params['early_stopping_rounds'],
+        metrics="rmse",
+        as_pandas=True)
     
-    print(cv_results)
-    return
+
+    # cv_results are separated into train and test datasets.
+    # each describes scores based on the set metrics to evaluate.
+    # in this case, it will return 'rsme' scores as mean and std
+    # aggregations of the folds.
+    
+    print('CV Results: ')
+    return cv_results
 
 
 def date_to_dtday(df, feature, form = 'day'):
