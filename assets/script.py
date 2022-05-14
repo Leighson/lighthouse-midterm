@@ -881,7 +881,8 @@ def date_to_dtday(df, feature, form = 'day'):
     '''
     set date column to either binary for grouping of weekd and weekend
     '''
-    df[feature] =  pd.to_datetime(df['fl_date'], format='%Y-%m-%d')
+
+    df[feature] =  pd.to_datetime(df[feature], format='%Y-%m-%d')
     df[feature] = df[feature].dt.day_of_week
     if form == 'binary':
         df.loc[df[feature] <= 4, feature] = 0
