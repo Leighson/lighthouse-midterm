@@ -3,6 +3,49 @@ import matplotlib
 import numpy as np
 import pandas as pd
 from sklearn.model_selection import GridSearchCV
+from sklearn.pipeline import Pipeline, TransformerMixin
+from sklearn.neighbors import LocalOutlierFactor
+
+class OutlierExtractor(TransformerMixin):
+    from sklearn.pipeline import Pipeline, TransformerMixin
+    from sklearn.neighbors import LocalOutlierFactor
+    
+    def __init__(self, **kwargs):
+        """
+        Create a transformer to remove outliers. A threshold is set for selection
+        criteria, and further arguments are passed to the LocalOutlierFactor class
+
+        Keyword Args:
+            neg_conf_val (float): The threshold for excluding samples with a lower
+               negative outlier factor.
+
+        Returns:
+            object: to be used as a transformer method as part of Pipeline()
+        """
+
+        self.threshold = kwargs.pop('neg_conf_val', -10.0)
+
+        self.kwargs = kwargs
+
+    def transform(self, X, y):
+        """
+        Uses LocalOutlierFactor class to subselect data based on some threshold
+
+        Returns:
+            ndarray: subsampled data
+
+        Notes:
+            X should be of shape (n_samples, n_features)
+        """
+        X = np.asarray(X)
+        y = np.asarray(y)
+        lcf = LocalOutlierFactor(**self.kwargs)
+        lcf.fit(X)
+        return (X[lcf.negative_outlier_factor_ > self.threshold, :],
+                y[lcf.negative_outlier_factor_ > self.threshold])
+
+    def fit(self, *args, **kwargs):
+        return self
 
 def split_data(df, target, drop_list=None, scaler=None, test_size=0.2):
     '''
@@ -383,8 +426,10 @@ def filter_outliers(df, column):
     for i, score in enumerate(z):
         if score < 3:
             filter_outliers.append(df.iloc[i, :])
+            
+    df[column] = filter_outliers
     
-    return pd.DataFrame(filter_outliers)
+    return df
 
 
 def check_normal_dist(data, skipna=True, distribution='norm', bins=20):
@@ -818,7 +863,7 @@ def xgboost_det(df, target, params, cv_params, features, drop=None, weight=None,
     
     # with as_pandas set to True, results in df of cv_results
     cv_results = xgb.cv(
-        df=X_train,
+        data=X_train,
         params=clf.best_params_,
         nfold=cv_params['nfold'],
         num_boost_round=cv_params['num_boost_round'],
